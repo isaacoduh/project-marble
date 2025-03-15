@@ -6,3 +6,5 @@ alembic/__pycache__/
 .env
 __pycache__/
 marble_env
+temp/
+flight_data.db
