@@ -104,3 +104,5 @@ npm run dev
 | ------ | ------------------------------------ | --------------------------------------------- |
 | POST   | `/upload-tlog/`                      | Upload a `.tlog` file and extract flight data |
 | GET    | `/flight-data/?file_name=<filename>` | Retrieve stored flight data                   |
+
+![Flight Path Screen](./flight_path_screen.png)
