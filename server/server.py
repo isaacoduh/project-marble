@@ -11,6 +11,7 @@ DATABASE_URL = "sqlite:///./flight_data.db"
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 class Base(DeclarativeBase):
     pass
 
@@ -26,14 +27,14 @@ class FlightDataPoint(Base):
     alt = Column(Float)
     heading = Column(Float)
 
+
 Base.metadata.create_all(bind=engine)
-
-
 
 app = FastAPI()
 
 TEMP_DIR = "temp"
 os.makedirs(TEMP_DIR, exist_ok=True)
+
 
 def parse_tlog(file_path):
     mav = mavutil.mavlink_connection(file_path)
@@ -47,10 +48,30 @@ def parse_tlog(file_path):
             "lat": msg.lat / 1e7,
             "lon": msg.lon / 1e7,
             "alt": msg.alt / 1000,
-            "heading": msg.hdg / 100 # convert to degrees
+            "heading": msg.hdg / 100  # convert to degrees
         }
         flight_data.append(data_point)
     return flight_data
+
+
+def save_to_database(flight_data, file_name):
+    db = SessionLocal()
+    try:
+        for point in flight_data:
+            db_point = FlightDataPoint(
+                file_name=file_name,
+                lat=point["lat"],
+                lon=point["lon"],
+                alt=point["alt"],
+                heading=point["heading"]
+            )
+            db.add(db_point)
+            db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database Error: {str(e)}")
+    finally:
+        db.close()
 
 
 @app.post('/upload-tlog/')
@@ -59,9 +80,6 @@ async def upload_tlog(file: UploadFile = File(...)):
 
     with open(file_path, 'wb') as buffer:
         buffer.write(await file.read())
-    
 
     flight_data = parse_tlog(file_path)
     return flight_data
-
-
