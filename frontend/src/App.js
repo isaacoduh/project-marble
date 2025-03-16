@@ -8,6 +8,7 @@ import {
   PlayArrowOutlined,
   RestartAltOutlined,
 } from "@mui/icons-material";
+import axios from "axios";
 
 const {
   Container,
@@ -63,188 +64,23 @@ const AircraftMarker = ({ position, heading }) => {
       markerRef.current.setLatLng(position);
       markerRef.current.setIcon(createAircraftIcon(heading));
     }
-
-    return () => {
-      if (markerRef.current) {
-        map.removeLayer(markerRef.current);
-      }
-    };
   }, [map, position, heading]);
 
   return null;
 };
 
+const MapController = ({ position, heading }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(position, map.getZoom(), { animate: true });
+    map._rotate = heading;
+    map._container.style.transform = `rotate(${-heading}deg)`;
+  }, [position, heading, map]);
+  return null;
+};
+
 const App = () => {
-  const [flightData, setFlightData] = useState([
-    {
-      lat: 50.3168118,
-      lon: -4.2199067,
-      alt: 100.62,
-      heading: 173.3,
-    },
-    {
-      lat: 50.3168118,
-      lon: -4.2199066,
-      alt: 100.65,
-      heading: 173.29,
-    },
-    {
-      lat: 50.3168118,
-      lon: -4.2199064,
-      alt: 100.7,
-      heading: 173.3,
-    },
-    {
-      lat: 50.3168118,
-      lon: -4.2199061,
-      alt: 100.74,
-      heading: 173.3,
-    },
-    {
-      lat: 50.3168119,
-      lon: -4.2199059,
-      alt: 100.78,
-      heading: 173.3,
-    },
-    {
-      lat: 50.3168119,
-      lon: -4.2199058,
-      alt: 101.03,
-      heading: 173.3,
-    },
-    {
-      lat: 50.316812,
-      lon: -4.2199057,
-      alt: 101.02,
-      heading: 173.3,
-    },
-    {
-      lat: 50.3168122,
-      lon: -4.2199056,
-      alt: 101.03,
-      heading: 173.31,
-    },
-    {
-      lat: 50.3168125,
-      lon: -4.2199055,
-      alt: 101.05,
-      heading: 173.3,
-    },
-    {
-      lat: 50.3168127,
-      lon: -4.2199054,
-      alt: 101.07,
-      heading: 173.31,
-    },
-    {
-      lat: 50.3168131,
-      lon: -4.219905,
-      alt: 101.08,
-      heading: 173.31,
-    },
-    {
-      lat: 50.3168134,
-      lon: -4.2199046,
-      alt: 101.1,
-      heading: 173.31,
-    },
-    {
-      lat: 50.3168136,
-      lon: -4.2199042,
-      alt: 101.14,
-      heading: 173.31,
-    },
-    {
-      lat: 50.3168138,
-      lon: -4.2199039,
-      alt: 101.18,
-      heading: 173.32,
-    },
-    {
-      lat: 50.3168138,
-      lon: -4.2199037,
-      alt: 101.23,
-      heading: 173.32,
-    },
-    {
-      lat: 50.3168137,
-      lon: -4.2199035,
-      alt: 101.42,
-      heading: 173.32,
-    },
-    {
-      lat: 50.3168137,
-      lon: -4.2199032,
-      alt: 101.43,
-      heading: 173.32,
-    },
-    {
-      lat: 50.3168135,
-      lon: -4.2199029,
-      alt: 101.47,
-      heading: 173.32,
-    },
-    {
-      lat: 50.3168134,
-      lon: -4.2199025,
-      alt: 101.51,
-      heading: 173.33,
-    },
-    {
-      lat: 50.3168132,
-      lon: -4.2199021,
-      alt: 101.54,
-      heading: 173.33,
-    },
-    {
-      lat: 50.3168131,
-      lon: -4.2199017,
-      alt: 101.55,
-      heading: 173.33,
-    },
-    {
-      lat: 50.3168129,
-      lon: -4.2199012,
-      alt: 101.53,
-      heading: 173.32,
-    },
-    {
-      lat: 50.3168127,
-      lon: -4.2199009,
-      alt: 101.53,
-      heading: 173.38,
-    },
-    {
-      lat: 50.3168125,
-      lon: -4.2199008,
-      alt: 101.78,
-      heading: 174.32,
-    },
-    {
-      lat: 50.3168127,
-      lon: -4.2199006,
-      alt: 102.91,
-      heading: 177.6,
-    },
-    {
-      lat: 50.3168124,
-      lon: -4.2199005,
-      alt: 104.6,
-      heading: 177.19,
-    },
-    {
-      lat: 50.3168122,
-      lon: -4.2199012,
-      alt: 106.07,
-      heading: 176.69,
-    },
-    {
-      lat: 50.3168123,
-      lon: -4.219901,
-      alt: 107.22,
-      heading: 177.27,
-    },
-  ]);
+  const [flightData, setFlightData] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [mapCenter, setMapCenter] = useState([50.3168118, -4.2199067]);
   const [speed, setSpeed] = useState(1);
@@ -252,10 +88,27 @@ const App = () => {
   const animationReference = useRef(null);
   const lastUpdateTimeReference = useRef(0);
   const [currentFrame, setCurrentFrame] = useState(0);
-  useEffect(() => {
-    const firstPoint = flightData[0];
 
-    setMapCenter([firstPoint.lat, firstPoint.lon]);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get(
+          "http://localhost:8000/flight-data/?file_name=001_assessment_flight.tlog"
+        );
+
+        const formattedFlightData = response?.data;
+
+        setFlightData(formattedFlightData);
+        if (formattedFlightData.length > 0) {
+          const firstPoint = formattedFlightData[0];
+          setMapCenter([firstPoint.lat, firstPoint.lon]);
+        }
+      } catch (error) {
+        console.error("Error fetching flight data:", error);
+      }
+    };
+
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -266,7 +119,6 @@ const App = () => {
         lastUpdateTimeReference.current = timestamp;
 
       const deltaTime = timestamp - lastUpdateTimeReference.current;
-      console.log(deltaTime);
 
       if (deltaTime > 1000 / (speed * 2)) {
         lastUpdateTimeReference.current = timestamp;
@@ -340,10 +192,16 @@ const App = () => {
               />
               <Polyline positions={flightPath} color="blue" />
               {flightData.length > 0 && currentFrame < flightData.length && (
-                <AircraftMarker
-                  position={currentPosition}
-                  heading={currentHeading}
-                />
+                <>
+                  <AircraftMarker
+                    position={currentPosition}
+                    heading={currentHeading}
+                  />
+                  <MapController
+                    position={currentPosition}
+                    heading={currentHeading}
+                  />
+                </>
               )}
             </MapContainer>
           </Box>
